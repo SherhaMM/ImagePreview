@@ -10,6 +10,7 @@ import UIKit
 
 final class SearchResultCell: UITableViewCell {
     
+    //MARK: UI Elements
     private var searchImage: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
@@ -25,8 +26,6 @@ final class SearchResultCell: UITableViewCell {
         return lbl
     }()
     
-    private let edgesInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-   
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
         setupViews()
@@ -51,17 +50,18 @@ final class SearchResultCell: UITableViewCell {
     
     private func constraintViews() {
         let imageSize = contentView.frame.height * 0.8
+        let marginConstant: CGFloat = 10
         
         NSLayoutConstraint.activate([
-            searchTermLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,constant: 10),
+            searchTermLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,
+                                                     constant: marginConstant),
             searchTermLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             
             searchImage.widthAnchor.constraint(equalToConstant: imageSize),
             searchImage.heightAnchor.constraint(equalToConstant: imageSize),
-            searchImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant:  -10),
+            searchImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor,
+                                                  constant:  -marginConstant),
             searchImage.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
-//            searchImage.topAnchor.constraint(equalTo: contentView.topAnchor),
-//            searchImage.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
     }
     

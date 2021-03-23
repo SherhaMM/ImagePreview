@@ -10,10 +10,6 @@ import Foundation
 let flickrBaseURL = "flickr.com"
 let getPhotoURL = "live.staticflickr.com"
 
-enum FlickrDestination: String {
-    case flickrSearch = "flickr.photos.search"
-}
-
 public enum Endpoint {
     case searchPhotosByQuery(query: String,
                              countPerPage: String,
@@ -21,7 +17,9 @@ public enum Endpoint {
     case getPhoto(serverId: String,
                   id: String,
                   secret: String)
-    
+}
+
+extension Endpoint {
     var scheme: String {
         switch self {
         case .getPhoto,.searchPhotosByQuery:
@@ -54,7 +52,7 @@ public enum Endpoint {
             return nil
         case .searchPhotosByQuery(let query,let countPerPage, let pageNum):
             return [
-                URLQueryItem(name: "method", value: FlickrDestination.flickrSearch.rawValue),
+                URLQueryItem(name: "method", value: "flickr.photos.search"),
                 URLQueryItem(name: "api_key", value: accessToken),
                 URLQueryItem(name: "text", value: query),
                 URLQueryItem(name: "per_page", value: countPerPage),
@@ -72,7 +70,6 @@ public enum Endpoint {
         }
     }
 }
-
 
 extension Endpoint {
     var url: URL? {

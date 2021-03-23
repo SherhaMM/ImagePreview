@@ -10,7 +10,7 @@ import RealmSwift
 
 // MARK: - SearchResult
 class SearchResult: Object {
-    @objc dynamic var searchQuery = "nil"
+    @objc dynamic var searchQuery = ""
     @objc dynamic var imagePath: String?
     
     override class func indexedProperties() -> [String] {

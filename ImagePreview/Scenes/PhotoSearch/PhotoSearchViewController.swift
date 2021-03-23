@@ -24,8 +24,8 @@ final class PhotoSearchViewController: UIViewController {
     let searchController = UISearchController()
     
     //MARK: Variables
-    
     var searchResults: Results<SearchResult>?
+    
     var notificationToken: NotificationToken? = nil
     
     var constraintsIsSet = false
@@ -199,7 +199,7 @@ extension PhotoSearchViewController: UISearchBarDelegate {
     }
 }
 
-//MARK: Networking
+//MARK: Networking methods
 extension PhotoSearchViewController {
     func searchAndRetrievePhoto(with textQuery: String) {
         DispatchQueue.global().async {
@@ -223,7 +223,7 @@ extension PhotoSearchViewController {
         }
     }
     
-    func searchPhotos(with textQuery: String,completition: @escaping (PhotoInfo?) -> Void) {
+    func searchPhotos(with textQuery: String, completition: @escaping (PhotoInfo?) -> Void) {
         let searchEndpoint = Endpoint.searchPhotosByQuery(query: textQuery,
                                                  countPerPage: "1",
                                                  pageNumber: "1")
