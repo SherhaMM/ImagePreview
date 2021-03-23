@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import Realm
+import RealmSwift
 
 final class PhotoSearchViewController: UIViewController {
     
@@ -16,7 +16,7 @@ final class PhotoSearchViewController: UIViewController {
     //MARK: UI Elements
     let tableView: UITableView = {
         let tableView = UITableView()
-        tableView.backgroundColor = .white
+//        tableView.backgroundColor = .systemGray
         tableView.allowsMultipleSelection = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         return tableView
@@ -25,11 +25,13 @@ final class PhotoSearchViewController: UIViewController {
     let searchController = UISearchController()
     
     //MARK: Variables
-    var searchResult = [SearchResult]() {
+    
+    var searchResults: Results<SearchResult>? {
         didSet {
             tableView.reloadData()
         }
     }
+    
     var constraintsIsSet = false
     
     init(networkService: NetworkServiceProtocol) {
@@ -52,9 +54,12 @@ final class PhotoSearchViewController: UIViewController {
         super.viewWillAppear(animated)
         
         title = "Search some image!"
-        view.backgroundColor = .white
-        navigationController?.navigationBar.backgroundColor = .white
-        navigationController?.navigationBar.tintColor = .black
+        view.backgroundColor = .systemBackground
+        navigationController?.navigationBar.isTranslucent = true
+        navigationController?.navigationBar.tintColor = .systemGray
+        navigationController?.navigationBar.prefersLargeTitles = false
+        
+        tableView.contentOffset = CGPoint(x: 0, y: -searchController.searchBar.frame.height)
     }
     
     //MARK: Methods
@@ -63,6 +68,7 @@ final class PhotoSearchViewController: UIViewController {
         configureSearchController()
         
         view.setNeedsLayout()
+        fetchResults()
     }
     
     private func configureTableView() {
@@ -70,7 +76,7 @@ final class PhotoSearchViewController: UIViewController {
         tableView.delegate = self
         tableView.register(SearchResultCell.self,
                            forCellReuseIdentifier: String(describing: SearchResultCell.self))
-        tableView.rowHeight = 80
+        tableView.rowHeight = 150
         view.addSubview(tableView)
     }
     
@@ -100,27 +106,50 @@ final class PhotoSearchViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
+    
+    private func fetchResults() {
+        guard let realm = try? Realm() else {
+            print("Couldnt init realm")
+            return
+        }
+        
+        let results = realm.objects(SearchResult.self)
+        self.searchResults = results
+    }
+    
+    private func presentAlert(with text: String) {
+        DispatchQueue.main.async {
+            let alertController = UIAlertController(title: text,
+                                                    message: "",
+                                                    preferredStyle: .alert)
+            let cancel = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+            alertController.addAction(cancel)
+            self.present(alertController, animated: true, completion: nil)
+        }
+    }
 }
 
 //MARK: UITableViewDataSource
 extension PhotoSearchViewController: UITableViewDataSource {
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return searchResult.count
+        return searchResults?.count ?? 0
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: SearchResultCell.self)) as? SearchResultCell else {
             fatalError("No cell with given identifier")
         }
-        let row = indexPath.row
-        cell.textLabel?.text = searchResult[row].searchQuery
-        cell.setImage(to: searchResult[row].image)
+        
+        let result = searchResults?[indexPath.row]
+        cell.configure(with: result?.searchQuery, imageName: result?.imagePath)
         return cell
     }
 }
 
 //MARK: UITableViewDelegate
 extension PhotoSearchViewController: UITableViewDelegate {
+    
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: false)
     }
@@ -133,33 +162,56 @@ extension PhotoSearchViewController: UISearchBarDelegate {
         guard let searchQuery = searchBar.text else {
             return
         }
+        searchBar.searchTextField.resignFirstResponder()
+        
+        searchAndRetrievePhoto(with: searchQuery)
         
         print(searchController.searchBar.text as Any)
-        
-        let searchEndpoint = Endpoint.searchPhotosByQuery(query: searchQuery,
-                                                 countPerPage: "1",
-                                                 pageNumber: "1")
-        networkService.makeCodableRequest(endpoint:searchEndpoint) { (result: Result<PhotosSearchResult,Error>) in
-            switch result {
-            case .success(let data):
-                let findedPhoto = data.photos.photo.first!
-                self.downloadPhoto(with: findedPhoto) { image in
+    }
+}
+
+//MARK: Networking
+extension PhotoSearchViewController {
+    func searchAndRetrievePhoto(with textQuery: String) {
+        DispatchQueue.global().async {
+            // No PromiseKit ¯\_(ツ)_/¯
+            self.searchPhotos(with: textQuery) { [weak self] (photoInfo) in
+                guard let photoInfo = photoInfo else {
+                    self?.presentAlert(with: "No photo was found with query \(textQuery)")
+                    print("No info about photo was given")
+                    return
+                }
+                
+                self?.downloadImage(with: photoInfo) { (image) in
                     guard let image = image else {
+                        print("No image returned")
                         return
                     }
                     
-                    DispatchQueue.main.async {
-                        self.searchResult.append(SearchResult(searchQuery: searchQuery, image: image))
-                    }
+                    self?.saveImage(image: image, textQuery: textQuery)
                 }
-                
+            }
+        }
+    }
+    
+    func searchPhotos(with textQuery: String,completition: @escaping (PhotoInfo?) -> Void) {
+        let searchEndpoint = Endpoint.searchPhotosByQuery(query: textQuery,
+                                                 countPerPage: "1",
+                                                 pageNumber: "1")
+        
+        networkService.makeCodableRequest(endpoint:searchEndpoint) { (result: Result<PhotosSearchResult,Error>) in
+            switch result {
+            case .success(let data):
+                let photoInfo = data.photos.photo.first
+                completition(photoInfo)
             case .failure(let error):
+                completition(nil)
                 print(error)
             }
         }
     }
     
-    func downloadPhoto(with photo: Photo, completition: @escaping (UIImage?) -> Void) {
+    func downloadImage(with photo: PhotoInfo, completition: @escaping (UIImage?) -> Void) {
         let getPhotoEndpoint = Endpoint.getPhoto(serverId: photo.server,
                                                  id: photo.id,
                                                  secret: photo.secret)
@@ -175,7 +227,24 @@ extension PhotoSearchViewController: UISearchBarDelegate {
                 completition(nil)
             }
         }
+    }
+    
+    func saveImage(image: UIImage, textQuery: String) {
+        guard let savedImageName = image.saveToDocuments() else {
+            print("Error while saving image")
+            return
+        }
         
+        guard let realm = try? Realm() else {
+            return
+        }
+        
+        try? realm.write {
+            let searchResult = SearchResult()
+            searchResult.imagePath = savedImageName
+            searchResult.searchQuery = textQuery
+            realm.add(searchResult)
+        }
     }
 }
 
