@@ -11,7 +11,7 @@ import Realm
 final class PhotoSearchViewController: UIViewController {
     
     //MARK: Dependencies
-    var networkManager: NetworkServiceProtocol!
+    var networkService: NetworkServiceProtocol!
     
     //MARK: UI Elements
     let tableView: UITableView = {
@@ -25,12 +25,17 @@ final class PhotoSearchViewController: UIViewController {
     let searchController = UISearchController()
     
     //MARK: Variables
+    var searchResult = [SearchResult]() {
+        didSet {
+            tableView.reloadData()
+        }
+    }
     var constraintsIsSet = false
     
-    init(networkManager: NetworkServiceProtocol) {
+    init(networkService: NetworkServiceProtocol) {
         super.init(nibName: nil, bundle: nil)
         
-        self.networkManager = networkManager
+        self.networkService = networkService
     }
     
     required init?(coder: NSCoder) {
@@ -52,6 +57,7 @@ final class PhotoSearchViewController: UIViewController {
         navigationController?.navigationBar.tintColor = .black
     }
     
+    //MARK: Methods
     private func configureViews() {
         configureTableView()
         configureSearchController()
@@ -61,7 +67,7 @@ final class PhotoSearchViewController: UIViewController {
     
     private func configureTableView() {
         tableView.dataSource = self
-//        tableView.delegate = self
+        tableView.delegate = self
         tableView.register(SearchResultCell.self,
                            forCellReuseIdentifier: String(describing: SearchResultCell.self))
         tableView.rowHeight = 80
@@ -70,7 +76,8 @@ final class PhotoSearchViewController: UIViewController {
     
     private func configureSearchController() {
         searchController.hidesNavigationBarDuringPresentation = true
-        searchController.searchResultsUpdater = self
+//        searchController.searchResultsUpdater = self
+        searchController.searchBar.delegate = self
         navigationItem.searchController = searchController
     }
     
@@ -99,34 +106,74 @@ final class PhotoSearchViewController: UIViewController {
 //MARK: UITableViewDataSource
 extension PhotoSearchViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 5
+        return searchResult.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: SearchResultCell.self)) as? SearchResultCell else {
             fatalError("No cell with given identifier")
         }
-        
-        cell.textLabel?.text = String(indexPath.row)
-        cell.setImage(to: UIImage(named: "placehold"))
+        let row = indexPath.row
+        cell.textLabel?.text = searchResult[row].searchQuery
+        cell.setImage(to: searchResult[row].image)
         return cell
     }
 }
 
-extension PhotoSearchViewController: UISearchResultsUpdating {
-    func updateSearchResults(for searchController: UISearchController) {
-        guard let searchQuery = searchController.searchBar.text else {
-            return
-        }
-        guard searchQuery.count == 4 else {
+//MARK: UITableViewDelegate
+extension PhotoSearchViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: false)
+    }
+}
+
+//MARK: UISearchResultsUpdating
+extension PhotoSearchViewController: UISearchBarDelegate {
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        guard let searchQuery = searchBar.text else {
             return
         }
         
         print(searchController.searchBar.text as Any)
-        networkManager.requestPhoto(with: searchQuery)
         
+        let searchEndpoint = Endpoint.searchPhotosByQuery(query: searchQuery,
+                                                 countPerPage: "1",
+                                                 pageNumber: "1")
+        networkService.makeCodableRequest(endpoint:searchEndpoint) { (result: Result<PhotosSearchResult,Error>) in
+            switch result {
+            case .success(let data):
+                let findedPhoto = data.photos.photo.first!
+                guard let image = self.downloadPhoto(with: findedPhoto) else {
+                    return
+                }
+                
+                self.searchResult.append(SearchResult(searchQuery: searchQuery, image: image))
+            case .failure(let error):
+                print(error)
+            }
+        }
     }
     
+    func downloadPhoto(with photo: Photo) -> UIImage? {
+        let getPhotoEndpoint = Endpoint.getPhoto(serverId: photo.server,
+                                                 id: photo.id,
+                                                 secret: photo.secret)
+        var resultImage: UIImage?
+        networkService.makeDataRequest(endpoint: getPhotoEndpoint) { (result) in
+            switch result {
+            case .success(let data):
+                guard let image = UIImage(data: data) else {
+                    return
+                }
+                resultImage = image
+            case .failure(let error):
+                print("Error while downloading photo \(error.localizedDescription)")
+            }
+        }
+        
+        return resultImage
+    }
 }
 
 
