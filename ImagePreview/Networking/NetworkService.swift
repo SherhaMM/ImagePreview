@@ -12,9 +12,9 @@ public typealias DataCompletition = (Result<Data, Error>) -> Void
 
 public protocol NetworkServiceProtocol {
     func makeCodableRequest<T: Codable>(endpoint: Endpoint,
-                                               completition: @escaping CodableCompletition<T>)
+                                        completition: @escaping CodableCompletition<T>)
     func makeDataRequest(endpoint: Endpoint,
-                                completition: @escaping DataCompletition)
+                         completition: @escaping DataCompletition)
 }
 
 class NetworkService: NetworkServiceProtocol {
@@ -40,7 +40,7 @@ class NetworkService: NetworkServiceProtocol {
             }
         }
     }
-        
+    
     class func makeRequest(endpoint: Endpoint,
                            completition: @escaping DataCompletition) {
         guard let url = endpoint.url else {

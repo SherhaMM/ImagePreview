@@ -76,7 +76,6 @@ final class PhotoSearchViewController: UIViewController {
     
     private func configureSearchController() {
         searchController.hidesNavigationBarDuringPresentation = true
-//        searchController.searchResultsUpdater = self
         searchController.searchBar.delegate = self
         navigationItem.searchController = searchController
     }
@@ -144,35 +143,39 @@ extension PhotoSearchViewController: UISearchBarDelegate {
             switch result {
             case .success(let data):
                 let findedPhoto = data.photos.photo.first!
-                guard let image = self.downloadPhoto(with: findedPhoto) else {
-                    return
+                self.downloadPhoto(with: findedPhoto) { image in
+                    guard let image = image else {
+                        return
+                    }
+                    
+                    DispatchQueue.main.async {
+                        self.searchResult.append(SearchResult(searchQuery: searchQuery, image: image))
+                    }
                 }
                 
-                self.searchResult.append(SearchResult(searchQuery: searchQuery, image: image))
             case .failure(let error):
                 print(error)
             }
         }
     }
     
-    func downloadPhoto(with photo: Photo) -> UIImage? {
+    func downloadPhoto(with photo: Photo, completition: @escaping (UIImage?) -> Void) {
         let getPhotoEndpoint = Endpoint.getPhoto(serverId: photo.server,
                                                  id: photo.id,
                                                  secret: photo.secret)
-        var resultImage: UIImage?
         networkService.makeDataRequest(endpoint: getPhotoEndpoint) { (result) in
             switch result {
             case .success(let data):
                 guard let image = UIImage(data: data) else {
                     return
                 }
-                resultImage = image
+                completition(image)
             case .failure(let error):
                 print("Error while downloading photo \(error.localizedDescription)")
+                completition(nil)
             }
         }
         
-        return resultImage
     }
 }
 
