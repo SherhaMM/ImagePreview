@@ -6,10 +6,9 @@
 //
 
 import Foundation
-import UIKit
 import RealmSwift
 
-
+// MARK: - SearchResult
 class SearchResult: Object {
     @objc dynamic var searchQuery = "nil"
     @objc dynamic var imagePath: String?
