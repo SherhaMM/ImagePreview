@@ -7,9 +7,14 @@
 
 import Foundation
 import UIKit
-import Realm
+import RealmSwift
 
-struct SearchResult {
-    var searchQuery: String
-    var image: UIImage
+
+class SearchResult: Object {
+    @objc dynamic var searchQuery = "nil"
+    @objc dynamic var imagePath: String?
+    
+    override class func indexedProperties() -> [String] {
+        return ["searchQuery","imageData"]
+    }
 }

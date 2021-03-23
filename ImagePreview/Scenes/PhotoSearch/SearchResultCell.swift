@@ -38,7 +38,19 @@ final class SearchResultCell: UITableViewCell {
         ])
     }
     
-    public func setImage(to image: UIImage?) {
+    public func configure(with text: String?, imagePath: String?) {
+        textLabel?.text = text
+        loadAndSetImage(from: imagePath)
+    }
+    
+    public func loadAndSetImage(from path: String?) {
+        guard let path = path,
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let image = UIImage(data: data) else {
+            print("No image")
+            return
+        }
+        
         searchImage.image = image
     }
     
