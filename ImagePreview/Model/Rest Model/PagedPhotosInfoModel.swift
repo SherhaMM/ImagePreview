@@ -7,19 +7,19 @@
 
 import Foundation
 
-// MARK: - Photos
-struct Photos: Codable {
+// MARK: - PagedPhotosInfo
+struct PagedPhotosInfo: Codable {
     let page: Int
     let pages: Int
     let perpage: Int
     let total: String
-    let photo: [PhotoInfo]
+    let photoInfos: [PhotoInfo]
 
     enum CodingKeys: String, CodingKey {
         case page = "page"
         case pages = "pages"
         case perpage = "perpage"
         case total = "total"
-        case photo = "photo"
+        case photoInfos = "photo"
     }
 }

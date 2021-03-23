@@ -7,7 +7,7 @@
 
 import Foundation
 
-// MARK: - Photo
+// MARK: - PhotoInfo
 struct PhotoInfo: Codable {
     let id: String
     let owner: String
@@ -15,9 +15,9 @@ struct PhotoInfo: Codable {
     let server: String
     let farm: Int
     let title: String
-    let ispublic: Int
-    let isfriend: Int
-    let isfamily: Int
+    let isPublic: Int
+    let isFriend: Int
+    let isFamily: Int
 
     enum CodingKeys: String, CodingKey {
         case id = "id"
@@ -26,8 +26,8 @@ struct PhotoInfo: Codable {
         case server = "server"
         case farm = "farm"
         case title = "title"
-        case ispublic = "ispublic"
-        case isfriend = "isfriend"
-        case isfamily = "isfamily"
+        case isPublic = "ispublic"
+        case isFriend = "isfriend"
+        case isFamily = "isfamily"
     }
 }

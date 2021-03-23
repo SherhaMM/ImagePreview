@@ -16,7 +16,6 @@ final class PhotoSearchViewController: UIViewController {
     //MARK: UI Elements
     let tableView: UITableView = {
         let tableView = UITableView()
-//        tableView.backgroundColor = .systemGray
         tableView.allowsMultipleSelection = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         return tableView
@@ -26,11 +25,8 @@ final class PhotoSearchViewController: UIViewController {
     
     //MARK: Variables
     
-    var searchResults: Results<SearchResult>? {
-        didSet {
-            tableView.reloadData()
-        }
-    }
+    var searchResults: Results<SearchResult>?
+    var notificationToken: NotificationToken? = nil
     
     var constraintsIsSet = false
     
@@ -60,6 +56,8 @@ final class PhotoSearchViewController: UIViewController {
         navigationController?.navigationBar.prefersLargeTitles = false
         
         tableView.contentOffset = CGPoint(x: 0, y: -searchController.searchBar.frame.height)
+        
+        observeSearchResultNotifications()
     }
     
     //MARK: Methods
@@ -68,7 +66,6 @@ final class PhotoSearchViewController: UIViewController {
         configureSearchController()
         
         view.setNeedsLayout()
-        fetchResults()
     }
     
     private func configureTableView() {
@@ -84,6 +81,7 @@ final class PhotoSearchViewController: UIViewController {
         searchController.hidesNavigationBarDuringPresentation = true
         searchController.searchBar.delegate = self
         navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
     }
     
     override func updateViewConstraints() {
@@ -107,14 +105,40 @@ final class PhotoSearchViewController: UIViewController {
         ])
     }
     
-    private func fetchResults() {
+    private func observeSearchResultNotifications() {
         guard let realm = try? Realm() else {
-            print("Couldnt init realm")
+            print("Error while open realm")
             return
         }
         
-        let results = realm.objects(SearchResult.self)
-        self.searchResults = results
+        self.searchResults = realm.objects(SearchResult.self)
+        
+        notificationToken = searchResults?.observe({ [weak self] (changes: RealmCollectionChange) in
+            guard let tableView = self?.tableView else { return }
+            switch changes {
+            case .initial:
+                tableView.reloadData()
+            case .update(_, let deletions, let insertions, let updates):
+                tableView.beginUpdates()
+                tableView.deleteRows(at: deletions.map { IndexPath(row: $0, section: 0) },
+                                     with: .automatic)
+                tableView.insertRows(at: insertions.map { IndexPath(row: $0, section: 0) },
+                                     with: .automatic)
+                tableView.reloadRows(at: updates.map { IndexPath(row: $0, section: 0) },
+                                     with: .automatic)
+                tableView.endUpdates()
+                
+                self?.scrollToTheLastRow()
+            case .error(let error):
+                print("Error occured while updating tableView \(error.localizedDescription)")
+            }
+        })
+    }
+    
+    private func scrollToTheLastRow() {
+        let lastRow = tableView.numberOfRows(inSection: 0) - 1
+        tableView.scrollToRow(at: IndexPath(row: lastRow, section: 0),
+                              at: .bottom, animated: true)
     }
     
     private func presentAlert(with text: String) {
@@ -126,6 +150,10 @@ final class PhotoSearchViewController: UIViewController {
             alertController.addAction(cancel)
             self.present(alertController, animated: true, completion: nil)
         }
+    }
+    
+    deinit {
+        notificationToken?.invalidate()
     }
 }
 
@@ -162,7 +190,8 @@ extension PhotoSearchViewController: UISearchBarDelegate {
         guard let searchQuery = searchBar.text else {
             return
         }
-        searchBar.searchTextField.resignFirstResponder()
+        
+        searchController.isActive = false
         
         searchAndRetrievePhoto(with: searchQuery)
         
@@ -199,10 +228,10 @@ extension PhotoSearchViewController {
                                                  countPerPage: "1",
                                                  pageNumber: "1")
         
-        networkService.makeCodableRequest(endpoint:searchEndpoint) { (result: Result<PhotosSearchResult,Error>) in
+        networkService.makeCodableRequest(endpoint:searchEndpoint) { (result: Result<SearchResponse,Error>) in
             switch result {
             case .success(let data):
-                let photoInfo = data.photos.photo.first
+                let photoInfo = data.pagedPhotosInfo.photoInfos.first
                 completition(photoInfo)
             case .failure(let error):
                 completition(nil)
