@@ -56,6 +56,8 @@ final class SearchResultCell: UITableViewCell {
             searchTermLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,
                                                      constant: marginConstant),
             searchTermLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            searchTermLabel.trailingAnchor.constraint(equalTo: searchImage.leadingAnchor,
+                                                      constant: -marginConstant),
             
             searchImage.widthAnchor.constraint(equalToConstant: imageSize),
             searchImage.heightAnchor.constraint(equalToConstant: imageSize),
